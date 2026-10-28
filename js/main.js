@@ -98,7 +98,7 @@ function previewCanvas(themeId, count = 7, gap = 2) {
   return c;
 }
 
-function applyTheme(id, announce = false) {
+function applyTheme(id) {
   data.settings.theme = id;
   persist();
   document.body.dataset.theme = id;
@@ -107,7 +107,6 @@ function applyTheme(id, announce = false) {
   bg = makeBackground(id);
   sizeBackground();
   document.querySelectorAll('[data-theme-id]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.themeId === id)));
-  if (announce) toast(THEMES[id].name.toUpperCase());
 }
 
 function buildThemePickers() {
@@ -133,15 +132,6 @@ function buildThemePickers() {
   }
 }
 
-let toastTimer = 0;
-function toast(text) {
-  const el = $('toast');
-  el.textContent = text;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1100);
-}
-
 // ------------------------------------------------------------- overlays
 
 function open(id) { $(id).classList.remove('hidden'); }
@@ -156,10 +146,7 @@ function fillRecords() {
   $('rec-popped').textContent = fmt(s.popped);
 }
 
-function syncSoundButton() {
-  const on = data.settings.sfx || data.settings.music;
-  $('btn-sound').textContent = on ? 'SOUND' : 'MUTED';
-  $('btn-sound').classList.toggle('off', !on);
+function syncSoundToggles() {
   $('opt-sfx').checked = data.settings.sfx;
   $('opt-music').checked = data.settings.music;
   $('opt-vibrate').checked = data.settings.vibrate;
@@ -170,24 +157,12 @@ function setSound(sfx, music) {
   data.settings.music = music;
   audio.setSfx(sfx);
   audio.setMusic(music);
-  syncSoundButton();
+  syncSoundToggles();
   persist();
 }
 
 function wireUi() {
   $('btn-hint').addEventListener('click', () => { audio.unlock(); game.showHint(true); });
-  $('btn-theme').addEventListener('click', () => {
-    audio.unlock();
-    const next = THEME_ORDER[(THEME_ORDER.indexOf(data.settings.theme) + 1) % THEME_ORDER.length];
-    applyTheme(next, true);
-    audio.select();
-  });
-  $('btn-sound').addEventListener('click', () => {
-    audio.unlock();
-    const on = data.settings.sfx || data.settings.music;
-    setSound(!on, !on);
-    if (!on) audio.select();
-  });
   $('btn-menu').addEventListener('click', () => { audio.unlock(); fillRecords(); open('menu'); });
   $('btn-new').addEventListener('click', () => { close('menu'); open('confirm'); });
   $('btn-confirm-new').addEventListener('click', async () => {
@@ -279,7 +254,7 @@ function frame(now) {
 buildThemePickers();
 wireUi();
 applyTheme(data.settings.theme);
-syncSoundButton();
+syncSoundToggles();
 game.start(data.game, data.stats);
 // hide the board until PLAY drops it in
 game.grid.flat().forEach((p) => { p.y = -20; });

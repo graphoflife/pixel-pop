@@ -22,23 +22,20 @@
 
   <div id="app">
     <header id="hud">
-      <div class="brand">PIXEL<span>POP!</span><small>ZEN MODE</small></div>
       <div class="stat panel"><span class="label">SCORE</span><span id="score" class="value">0</span></div>
-      <div class="stat panel alt"><span class="label">BEST</span><span id="best" class="value">0</span></div>
+      <div class="stat panel"><span class="label">BEST</span><span id="best" class="value">0</span></div>
+      <button id="btn-hint" class="btn icon" aria-label="Hint" title="Hint">
+        <svg viewBox="0 0 7 10" width="14" height="20" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M1 0h5v1h-5zM0 1h2v1h-2zM5 1h2v1h-2zM0 2h2v1h-2zM5 2h2v1h-2zM4 3h2v1h-2zM3 4h2v1h-2zM2 5h2v1h-2zM2 6h2v1h-2zM2 8h2v1h-2zM2 9h2v1h-2z"/></svg>
+      </button>
+      <button id="btn-menu" class="btn icon" aria-label="Menu" title="Menu">
+        <svg viewBox="0 0 11 10" width="22" height="20" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M5 0h1v1h-1zM4 1h3v1h-3zM3 2h5v1h-5zM2 3h7v1h-7zM1 4h9v1h-9zM0 5h11v1h-11zM1 6h9v1h-9zM1 7h3v1h-3zM7 7h3v1h-3zM1 8h3v1h-3zM7 8h3v1h-3zM1 9h3v1h-3zM7 9h3v1h-3z"/></svg>
+      </button>
       <div class="level panel"><span class="lv">LV <b id="level">1</b></span><div class="bar"><i id="bar"></i></div></div>
     </header>
 
     <main id="stage">
       <canvas id="board" aria-label="Game board"></canvas>
-      <div id="toast" class="toast"></div>
     </main>
-
-    <nav id="controls">
-      <button id="btn-hint" class="btn">HINT</button>
-      <button id="btn-theme" class="btn alt">THEME</button>
-      <button id="btn-sound" class="btn" aria-label="Toggle sound">SOUND</button>
-      <button id="btn-menu" class="btn alt">MENU</button>
-    </nav>
   </div>
 
   <div id="splash" class="overlay">
