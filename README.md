@@ -20,6 +20,11 @@ screen and it runs like an app.
   - L or T shape → **Cross**: clears its whole row and column
   - 5 in a row → **Prism**: swap it with any piece to clear every piece of that colour
   - Swap two specials together for mega combos (Nova+Nova, Cross+Cross, Nova+Cross, Prism+anything)
+- **Swipe ahead**: you can keep swapping while explosions are still playing. Each
+  swap shows right away and waits its turn, and swaps play in the order you made
+  them. If a cascade destroys or moves a piece you swapped, that swap (and any
+  later swap that relied on it) flips back immediately.
+- **Always alive**: every piece gently sways, wobbles or tilts and keeps twinkling
 - **Chain reactions and cascades**: points are multiplied by the cascade depth, and
   the music climbs the scale as the chain grows
 - **Smart board**: refills try several candidate fills and pick one that keeps

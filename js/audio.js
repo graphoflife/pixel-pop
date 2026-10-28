@@ -194,6 +194,14 @@ export class Audio {
     this.osc('triangle', 180, t + 0.1, { gain: 0.16, decay: 0.16, send: 0.05 });
   }
 
+  // a queued swap got undone by the board changing under it
+  cancel() {
+    if (!this.ready) return;
+    const t = this.now;
+    this.pluck(this.note(7), t, 0.3);
+    this.pluck(this.note(4), t + 0.07, 0.25);
+  }
+
   match(chain, size) {
     if (!this.ready) return;
     const t = this.now;

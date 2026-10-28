@@ -776,6 +776,21 @@ function shineFrames(pix, frames = 7) {
   });
 }
 
+// The brightest third of a sprite's pixels: where idle sparkles may appear.
+function brightSpots(pix) {
+  const pts = [];
+  for (let y = 0; y < pix.h; y++) {
+    for (let x = 0; x < pix.w; x++) {
+      const col = pix.get(x, y);
+      if (!col || col === INK) continue;
+      const n = parseInt(col.slice(1), 16);
+      pts.push([x, y, 0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255)]);
+    }
+  }
+  pts.sort((a, b) => b[2] - a[2]);
+  return pts.slice(0, Math.max(6, Math.floor(pts.length / 3))).map(([x, y]) => [x, y]);
+}
+
 const cache = new Map();
 
 export function themeSprites(themeId) {
@@ -784,14 +799,16 @@ export function themeSprites(themeId) {
   const pieces = Array.from({ length: 7 }, (_, t) => {
     const pix = builder.pieces(t);
     const img = pix.canvas();
-    return { img, white: silhouette(img, '#ffffff'), shadow: silhouette(img, INK), shine: shineFrames(pix) };
+    return { img, white: silhouette(img, '#ffffff'), shadow: silhouette(img, INK), shine: shineFrames(pix), spots: brightSpots(pix) };
   });
-  const prism = Array.from({ length: 12 }, (_, f) => builder.prism(f / 12).canvas());
+  const prismPix = Array.from({ length: 12 }, (_, f) => builder.prism(f / 12));
+  const prism = prismPix.map((pix) => pix.canvas());
   const set = {
     pieces,
     prism,
     prismWhite: silhouette(prism[0], '#ffffff'),
     prismShadow: silhouette(prism[0], INK),
+    prismSpots: brightSpots(prismPix[0]),
     ramps: builder.ramps,
   };
   cache.set(themeId, set);

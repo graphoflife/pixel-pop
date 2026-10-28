@@ -39,7 +39,9 @@ export class Game {
     this.tweens = [];
     this.fallWaiters = [];
     this.dying = [];
-    this.busy = false;
+    this.queue = [];      // swaps the player made that are shown but not played yet, in order
+    this.busy = false;    // a queued swap is being resolved
+    this.locked = false;  // intro / new game: input ignored
     this.selected = null;
     this.hint = null;
     this.idleSince = 0;
@@ -81,21 +83,23 @@ export class Game {
 
   // The board drops in from above, column by column.
   async intro() {
-    this.busy = true;
+    this.locked = true;
     B.forEachCell(this.grid, (p, r, c) => {
       p.y = r - B.SIZE - 1;
       p.fall = { vy: 0, ty: r, delay: c * 45 + (B.SIZE - r) * 15 };
     });
     await this.waitFalls();
-    this.busy = false;
+    this.locked = false;
     this.idleSince = this.time;
   }
 
   async newGame() {
-    if (this.busy) return false;
-    this.busy = true;
+    if (this.locked) return false;
+    this.locked = true;
+    this.queue.length = 0;
+    while (this.busy) await this.wait(50);
     this.selected = this.hint = null;
-    B.forEachCell(this.grid, (p) => this.kill(p, 'burst', Math.random() * 250));
+    B.forEachCell(this.grid, (p) => { this.endSlide(p); this.kill(p, 'burst', Math.random() * 250); });
     this.audio.shuffle();
     await this.wait(450);
     this.grid = B.createBoard();
@@ -105,7 +109,6 @@ export class Game {
     this.stats.games++;
     B.forEachCell(this.grid, (p, r, c) => this.dress(p, r, c));
     this.notify();
-    this.busy = false;
     await this.intro();
     this.save();
     return true;
@@ -115,6 +118,7 @@ export class Game {
     p.x = c; p.y = r;
     p.phase = Math.random();
     p.fall = null;
+    p.slide = null;
     p.land = -1e9;
     p.born = -1e9;
     return p;
@@ -139,6 +143,21 @@ export class Game {
 
   wait(ms) { return this.anim(ms); }
 
+  // Glides a piece to a cell. A new slide replaces the old one from wherever
+  // the piece is now; y = null leaves the vertical to an ongoing fall.
+  slideTo(p, x, y, dur, lift = false) {
+    this.endSlide(p);
+    return new Promise((done) => { p.slide = { fx: p.x, fy: p.y, tx: x, ty: y, start: this.time, dur, lift, done }; });
+  }
+
+  endSlide(p) {
+    if (!p?.slide) return;
+    const { done } = p.slide;
+    p.slide = null;
+    p.lift = 0;
+    done();
+  }
+
   waitFalls() {
     let falling = false;
     B.forEachCell(this.grid, (p) => { if (p?.fall) falling = true; });
@@ -153,6 +172,17 @@ export class Game {
       tw.fn(tw.easing(k));
       if (k >= 1) { this.tweens.splice(this.tweens.indexOf(tw), 1); tw.resolve(); }
     }
+
+    B.forEachCell(this.grid, (p) => {
+      const s = p?.slide;
+      if (!s) return;
+      const k = clamp((this.time - s.start) / s.dur, 0, 1), e = ease.inOut(k);
+      const vertical = s.ty !== null && !p.fall;
+      p.x = k >= 1 ? s.tx : s.fx + (s.tx - s.fx) * e;
+      if (vertical) p.y = k >= 1 ? s.ty : s.fy + (s.ty - s.fy) * e;
+      p.lift = s.lift ? Math.sin(k * Math.PI) : 0;
+      if (k >= 1) this.endSlide(p);
+    });
 
     let falling = 0;
     B.forEachCell(this.grid, (p) => {
@@ -181,7 +211,7 @@ export class Game {
     this.dying = this.dying.filter((p) => this.time - p.pop.start < p.pop.dur);
     this.fx.update(dt / 1000);
 
-    if (!this.busy && !this.hint && this.time - this.idleSince > HINT_AFTER) this.showHint(false);
+    if (!this.hint && this.time - this.idleSince > HINT_AFTER) this.showHint(false);
   }
 
   // -------------------------------------------------------------- input
@@ -194,12 +224,12 @@ export class Game {
       if (!cell) { this.selected = null; return; }
       try { cv.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       this.drag = { start: cell, x: e.clientX, y: e.clientY, used: false, deselect: false };
-      if (this.busy) return;
+      if (this.locked) return;
       const sel = this.selected;
       if (sel && B.adjacent(sel, cell)) {
         this.selected = null;
         this.drag.used = true;
-        this.trySwap(sel, cell);
+        this.queueSwap(sel, cell);
         return;
       }
       if (sel && sel.r === cell.r && sel.c === cell.c) this.drag.deselect = true;
@@ -207,7 +237,7 @@ export class Game {
     });
     cv.addEventListener('pointermove', (e) => {
       const d = this.drag;
-      if (!d || d.used || this.busy) return;
+      if (!d || d.used || this.locked) return;
       const rect = cv.getBoundingClientRect();
       const cell = (T * this.layout.S) / (cv.width / rect.width);
       const dx = e.clientX - d.x, dy = e.clientY - d.y;
@@ -217,7 +247,7 @@ export class Game {
       d.used = true;
       if (!B.inBounds(to.r, to.c)) return;
       this.selected = null;
-      this.trySwap(d.start, to);
+      this.queueSwap(d.start, to);
     });
     const end = () => {
       if (this.drag?.deselect && !this.drag.used) this.selected = null;
@@ -238,7 +268,7 @@ export class Game {
   }
 
   showHint(byButton) {
-    if (this.busy) return;
+    if (this.busy || this.locked || this.queue.length) return;
     const move = B.bestMove(this.grid);
     if (!move) return;
     this.hint = { ...move, since: this.time };
@@ -247,15 +277,70 @@ export class Game {
 
   // ---------------------------------------------------------- gameplay
 
-  async trySwap(a, b) {
+  // The board as the player sees it: the real grid with every queued swap applied in order.
+  viewGrid() {
+    const view = this.grid.map((row) => row.slice());
+    for (const { a, b } of this.queue) [view[a.r][a.c], view[b.r][b.c]] = [view[b.r][b.c], view[a.r][a.c]];
+    return view;
+  }
+
+  // Swaps can be made at any time. The swap is shown right away and then
+  // waits its turn; swaps are played strictly in the order they were made.
+  queueSwap(a, b) {
+    if (this.locked || this.queue.length >= 8) return;
+    const view = this.viewGrid();
+    const pa = view[a.r][a.c], pb = view[b.r][b.c];
+    if (!pa || !pb || pa.fall || pb.fall) return;
+    this.hint = null;
+    this.audio.swap();
+    const move = { a, b, pa, pb };
+    move.shown = Promise.all([this.slideTo(pa, b.c, b.r, 140, true), this.slideTo(pb, a.c, a.r, 140)]);
+    this.queue.push(move);
+    this.pump();
+  }
+
+  async pump() {
     if (this.busy) return;
     this.busy = true;
-    this.hint = null;
-    const pa = this.grid[a.r][a.c], pb = this.grid[b.r][b.c];
-    this.audio.swap();
-    await this.animSwap(pa, pb, a, b, 140);
+    while (this.queue.length && !this.locked) {
+      const move = this.queue[0];
+      await move.shown;
+      if (this.queue[0] === move) await this.play(move);
+    }
+    this.busy = false;
+    this.idleSince = this.time;
+  }
+
+  // Re-checks the queued swaps against the board as it is now. A swap stays
+  // only while both of its pieces are still where the player swapped them
+  // (counting the swaps queued before it), so when a cascade destroys or moves
+  // them, that swap and every later one built on it is undone immediately.
+  revalidate() {
+    const view = this.grid.map((row) => row.slice());
+    const kept = [];
+    for (const m of this.queue) {
+      if (view[m.a.r][m.a.c] !== m.pa || view[m.b.r][m.b.c] !== m.pb) continue;
+      view[m.a.r][m.a.c] = m.pb;
+      view[m.b.r][m.b.c] = m.pa;
+      kept.push(m);
+    }
+    if (kept.length < this.queue.length) this.audio.cancel();
+    this.queue = kept;
+    // glide everything to where it should now be shown; falling pieces only fix their column
+    B.forEachCell(view, (p, r, c) => {
+      if (!p) return;
+      const goalX = p.slide ? p.slide.tx : p.x;
+      const goalY = p.slide && p.slide.ty !== null ? p.slide.ty : p.y;
+      if (p.fall) { if (Math.abs(goalX - c) > 1e-6) this.slideTo(p, c, null, 160); return; }
+      if (Math.abs(goalX - c) > 1e-6 || Math.abs(goalY - r) > 1e-6) this.slideTo(p, c, r, 160);
+    });
+  }
+
+  async play(move) {
+    const { a, b, pa, pb } = move;
     this.grid[b.r][b.c] = pa;
     this.grid[a.r][a.c] = pb;
+    this.queue.shift();
 
     this.turnPoints = 0;
     let chain = 0;
@@ -268,23 +353,15 @@ export class Game {
     } else if (B.findMatches(this.grid).length) {
       chain = await this.cascade(0, [B.key(b.r, b.c), B.key(a.r, a.c)]);
     } else {
+      // no match: swap back, which also undoes any later swap that relied on this one
       this.grid[a.r][a.c] = pa;
       this.grid[b.r][b.c] = pb;
       this.audio.invalid();
-      await this.animSwap(pa, pb, b, a, 170);
-      this.busy = false;
-      this.idleSince = this.time;
+      this.revalidate();
+      await this.wait(170);
       return;
     }
     await this.endTurn(chain);
-  }
-
-  animSwap(pa, pb, a, b, dur) {
-    return this.anim(dur, (k) => {
-      pa.x = a.c + (b.c - a.c) * k; pa.y = a.r + (b.r - a.r) * k;
-      pb.x = b.c + (a.c - b.c) * k; pb.y = b.r + (a.r - b.r) * k;
-      pa.lift = Math.sin(k * Math.PI);
-    }, ease.inOut).then(() => { pa.lift = 0; });
   }
 
   async cascade(chain, prefer) {
@@ -348,11 +425,18 @@ export class Game {
       const w = waves[i];
       for (const ev of w.events) this.playEvent(ev, chain);
       let blasted = 0;
+      const removed = [];
       for (const k of w.cells) {
         const r = B.rowOf(k), c = B.colOf(k);
-        const p = this.grid[r][c];
-        if (!p) continue;
+        if (!this.grid[r][c]) continue;
+        removed.push([k, this.grid[r][c], r, c]);
         this.grid[r][c] = null;
+      }
+      if (this.queue.length) this.revalidate();
+      for (const [k, p, r, c] of removed) {
+        // a queued swap may have been showing this piece elsewhere: it pops where it really is
+        this.endSlide(p);
+        p.x = c; p.y = r;
         if (merges.has(k) && p.special === B.NONE) {
           const to = merges.get(k);
           this.kill(p, 'merge', 0, { tx: B.colOf(to), ty: B.rowOf(to) });
@@ -372,6 +456,7 @@ export class Game {
   }
 
   kill(p, mode, delay = 0, extra = {}) {
+    this.endSlide(p);
     p.pop = { start: this.time + delay, dur: mode === 'merge' ? 170 : 300, mode, spawned: false, ...extra };
     p.fall = null;
     this.dying.push(p);
@@ -453,6 +538,7 @@ export class Game {
       a.piece.y = a.r - perCol.get(a.c) - 0.4;
       a.piece.fall = { vy: 1, ty: a.r, delay: a.c * 10 };
     }
+    if (this.queue.length) this.revalidate();
     await this.waitFalls();
   }
 
@@ -462,11 +548,13 @@ export class Game {
     if (this.turnPoints >= 1500) this.fx.confetti(ART, ART, 50);
     if (!B.countMoves(this.grid, 1)) await this.reshuffle();
     this.save();
-    this.busy = false;
-    this.idleSince = this.time;
   }
 
   async reshuffle() {
+    // every pending swap refers to the old layout
+    this.queue.length = 0;
+    this.locked = true;
+    B.forEachCell(this.grid, (p) => this.endSlide(p));
     this.fx.burst(ART / 2, ART / 2, 'SHUFFLE!', { size: 9, fill: '#5ee7ff' });
     this.audio.shuffle();
     await this.wait(400);
@@ -483,6 +571,7 @@ export class Game {
         m.p.y = m.a.r + (m.r - m.a.r) * k + Math.sin(m.p.phase * 6.28) * swirl;
       }
     }, ease.inOut);
+    this.locked = false;
   }
 
   chainWord(chain) {
@@ -562,7 +651,7 @@ export class Game {
     s.beginPath();
     s.rect(PAD, PAD, B.SIZE * T, B.SIZE * T);
     s.clip();
-    const sel = this.selected && this.grid[this.selected.r]?.[this.selected.c];
+    const sel = this.selected && this.viewGrid()[this.selected.r][this.selected.c];
     B.forEachCell(this.grid, (p) => { if (p && p !== sel) this.drawPiece(s, p); });
     if (sel) this.drawPiece(s, sel, true);
     for (const p of this.dying) this.drawPiece(s, p);
@@ -595,6 +684,18 @@ export class Game {
       s.fillRect(PAD + c * T, PAD + r * T, T, T);
       bracket(r, c, Math.floor(t / 180) % 2 ? '#ffffff' : this.theme.board.frame, 0);
     }
+    // queued swaps waiting their turn: small corner ticks, brighter for the next one up
+    this.queue.forEach((m, i) => {
+      s.fillStyle = i === 0 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)';
+      for (const { r, c } of [m.a, m.b]) {
+        const x = PAD + c * T, y = PAD + r * T;
+        for (const [px, py, dx, dy] of [[x + 1, y + 1, 1, 1], [x + T - 2, y + 1, -1, 1], [x + 1, y + T - 2, 1, -1], [x + T - 2, y + T - 2, -1, -1]]) {
+          s.fillRect(px, py, 1, 1);
+          s.fillRect(px + dx, py, 1, 1);
+          s.fillRect(px, py + dy, 1, 1);
+        }
+      }
+    });
     if (this.hint) {
       const pulse = Math.floor((t - this.hint.since) / 260) % 2;
       for (const cell of [this.hint.a, this.hint.b]) {
@@ -616,13 +717,20 @@ export class Game {
     let x = PAD + p.x * T, y = PAD + p.y * T;
     let sx = 1, sy = 1, flash = 0, alpha = 1, anchorBottom = true;
 
-    // idle personality per theme
+    // idle personality per theme: every piece is always gently moving
     const idle = this.theme.idle;
     const ph = p.phase * 6.283;
+    const sec = t / 1000;
+    let angle = 0, pivotBottom = false;
     if (!p.pop && !p.fall) {
-      if (idle === 'wobble') { const w = Math.sin(t / 1000 * 3.2 + ph) * 0.05; sy += w; sx -= w * 0.8; }
-      if (idle === 'drift') y += Math.round(Math.sin(t / 1000 * 1.4 + ph) * 0.8);
-      if (idle === 'sway') x += Math.sin(t / 1000 * 1.2 + ph) > 0.8 ? 1 : 0;
+      if (idle === 'shine') angle = Math.sin(sec * 1.7 + ph) * 0.08;
+      if (idle === 'drift') { angle = Math.sin(sec * 1.1 + ph) * 0.11; y += Math.round(Math.sin(sec * 1.4 + ph) * 0.8); }
+      if (idle === 'sway') { angle = Math.sin(sec * 1.9 + ph) * 0.14 + Math.sin(sec * 0.7 + ph * 2) * 0.04; pivotBottom = true; }
+      if (idle === 'wobble') {
+        const w = Math.sin(sec * 3.2 + ph) * 0.06;
+        sy += w; sx -= w * 0.8;
+        angle = Math.sin(sec * 1.6 + ph) * 0.06; pivotBottom = true;
+      }
     }
 
     const sinceLand = t - p.land;
@@ -637,7 +745,7 @@ export class Game {
       const sc = 0.4 + 0.6 * ease.back(k);
       sx *= sc; sy *= sc; flash = 1 - k; anchorBottom = false;
     }
-    if (selected && !this.busy) y -= Math.abs(Math.sin(t / 1000 * 7)) * 2;
+    if (selected) y -= Math.abs(Math.sin(t / 1000 * 7)) * 2;
     if (p.lift) { sx *= 1 + p.lift * 0.15; sy *= 1 + p.lift * 0.15; anchorBottom = false; }
 
     if (p.pop) {
@@ -660,32 +768,54 @@ export class Game {
     const dx = Math.round(x + (T - w) / 2);
     const dy = Math.round(anchorBottom ? y + (T - h) : y + (T - h) / 2);
 
+    // every layer of the sprite goes through the same (possibly rotated) blit
+    const blit = (image, a, ox = 0, oy = 0) => {
+      s.globalAlpha = a;
+      if (!angle) { s.drawImage(image, dx + ox, dy + oy, w, h); return; }
+      s.save();
+      s.translate(dx + w / 2 + ox, (pivotBottom ? dy + h : dy + h / 2) + oy);
+      s.rotate(angle);
+      s.drawImage(image, -w / 2, pivotBottom ? -h : -h / 2, w, h);
+      s.restore();
+    };
+
     if ((special === B.NOVA || special === B.CROSS) && !p.pop) this.drawSpecialBack(s, p, dx, dy, w, h);
-    s.globalAlpha = alpha * 0.35;
-    s.drawImage(shadow, dx + 1, dy + 1, w, h);
-    s.globalAlpha = alpha;
-    s.drawImage(img, dx, dy, w, h);
+    blit(shadow, alpha * 0.35, 1, 1);
+    blit(img, alpha);
 
     if (idle === 'shine' && !p.pop && special !== B.PRISM) {
-      const cycle = (t / 1000 + p.phase * 9) % 6;
+      const cycle = (sec + p.phase * 9) % 4;
       const frames = this.sprites.pieces[p.type].shine;
-      if (cycle < 0.5) {
-        s.globalAlpha = 0.75;
-        s.drawImage(frames[Math.floor((cycle / 0.5) * frames.length)], dx, dy, w, h);
-      }
-    }
-    if (idle === 'drift' && !p.pop && Math.sin(t / 1000 * 2 + p.phase * 40) > 0.985) {
-      s.globalAlpha = 1;
-      s.fillStyle = '#ffffff';
-      s.fillRect(dx + 4, dy + 4, 1, 1); s.fillRect(dx + 3, dy + 4, 3, 1); s.fillRect(dx + 4, dy + 3, 1, 3);
+      if (cycle < 0.5) blit(frames[Math.floor((cycle / 0.5) * frames.length)], 0.75);
     }
 
     if (special === B.NOVA || special === B.CROSS) this.drawSpecialAura(s, p, dx, dy, w, h);
-    if (flash > 0) {
-      s.globalAlpha = Math.min(1, flash) * alpha;
-      s.drawImage(white, dx, dy, w, h);
-    }
+    if (flash > 0) blit(white, Math.min(1, flash) * alpha);
     s.globalAlpha = 1;
+    if (!p.pop && !p.fall) this.drawTwinkle(s, p, dx, dy, w, h);
+  }
+
+  // A little four-point star that keeps popping up on a bright spot of each
+  // piece, so the board always glitters a bit.
+  drawTwinkle(s, p, dx, dy, w, h) {
+    const PERIOD = 2.2, SHOW = 0.55;
+    const cyc = this.time / 1000 / PERIOD + p.phase * 7;
+    const n = Math.floor(cyc);
+    const k = ((cyc - n) * PERIOD) / SHOW;
+    if (k >= 1) return;
+    const spots = p.special === B.PRISM ? this.sprites.prismSpots : this.sprites.pieces[p.type].spots;
+    const [sx, sy] = spots[Math.abs((p.id * 7919 + n * 104729) | 0) % spots.length];
+    const x = Math.round(dx + (sx * w) / T), y = Math.round(dy + (sy * h) / T);
+    const arm = k < 0.2 ? 0 : k < 0.45 ? 1 : k < 0.75 ? 2 : 1;
+    const tint = p.special === B.PRISM ? '#fff6c8' : this.sprites.ramps[p.type][5];
+    s.fillStyle = tint;
+    for (let i = 1; i <= arm; i++) {
+      s.fillRect(x - i, y, 1, 1); s.fillRect(x + i, y, 1, 1);
+      s.fillRect(x, y - i, 1, 1); s.fillRect(x, y + i, 1, 1);
+    }
+    s.fillStyle = '#ffffff';
+    s.fillRect(x, y, 1, 1);
+    if (arm === 2) { s.fillRect(x - 1, y, 3, 1); s.fillRect(x, y - 1, 1, 3); }
   }
 
   // glow drawn underneath a special piece so it reads at a glance
