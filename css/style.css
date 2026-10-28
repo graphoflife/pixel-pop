@@ -61,6 +61,7 @@ body::after {
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
 }
@@ -136,6 +137,8 @@ body::after {
 #stage {
   position: relative;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden; /* lets the stage shrink below the canvas so it can be re-measured */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -375,6 +378,12 @@ body::after {
   margin-top: 18px;
 }
 .sheet-actions .btn { flex: 1; }
+
+/* phones: give the board as much of the width as possible */
+@media (max-width: 520px) {
+  #app { padding-left: 5px; padding-right: 5px; gap: 10px; }
+  #hud { padding: 0 3px 0 1px; }
+}
 
 @media (max-height: 560px) {
   :root { --bar-h: 40px; }

@@ -613,8 +613,10 @@ export class Game {
     const w = Math.max(1, Math.round(cssW * dpr)), h = Math.max(1, Math.round(cssH * dpr));
     this.canvas.width = w; this.canvas.height = h;
     let S = Math.min(w, h) / ART;
-    // whole-number scaling keeps every art pixel the same size when it costs little space
-    if (S >= 2 && Math.floor(S) / S > 0.86) S = Math.floor(S);
+    // whole-number scaling keeps every art pixel the same size, but only when it
+    // costs next to no space; otherwise fill the width (on phone screens the
+    // odd one-device-pixel difference between art pixels is invisible)
+    if (S >= 2 && Math.floor(S) / S > 0.985) S = Math.floor(S);
     this.layout = { S, ox: Math.round((w - ART * S) / 2), oy: Math.round((h - ART * S) / 2) };
   }
 
