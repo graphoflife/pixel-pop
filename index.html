@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Pixel Pop! Zen</title>
+  <meta name="description" content="A relaxing pixel-art match-3 in zen mode: jewels, cosmos, garden and slime themes, combos, explosions and no game over.">
+  <meta name="theme-color" content="#1c0f35">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-theme="jewels">
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <div id="app">
+    <header id="hud">
+      <div class="brand">PIXEL<span>POP!</span><small>ZEN MODE</small></div>
+      <div class="stat panel"><span class="label">SCORE</span><span id="score" class="value">0</span></div>
+      <div class="stat panel alt"><span class="label">BEST</span><span id="best" class="value">0</span></div>
+      <div class="level panel"><span class="lv">LV <b id="level">1</b></span><div class="bar"><i id="bar"></i></div></div>
+    </header>
+
+    <main id="stage">
+      <canvas id="board" aria-label="Game board"></canvas>
+      <div id="toast" class="toast"></div>
+    </main>
+
+    <nav id="controls">
+      <button id="btn-hint" class="btn">HINT</button>
+      <button id="btn-theme" class="btn alt">THEME</button>
+      <button id="btn-sound" class="btn" aria-label="Toggle sound">SOUND</button>
+      <button id="btn-menu" class="btn alt">MENU</button>
+    </nav>
+  </div>
+
+  <div id="splash" class="overlay">
+    <div class="splash">
+      <h1 class="logo">PIXEL<span>POP!</span></h1>
+      <div class="zen-badge">ZEN MODE</div>
+      <canvas id="parade" width="168" height="34"></canvas>
+      <p class="tagline">Match, chain &amp; blast &mdash; no timer, no game over.</p>
+      <div class="theme-pills" id="splash-themes"></div>
+      <button id="btn-play" class="btn big">PLAY</button>
+      <p class="best-line">BEST <b id="splash-best">0</b></p>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay hidden">
+    <div class="sheet" role="dialog" aria-label="Menu">
+      <div class="sheet-head">
+        <h2>MENU</h2>
+        <button class="btn small" data-close>&times;</button>
+      </div>
+
+      <h3>THEME</h3>
+      <div class="theme-grid" id="theme-grid"></div>
+
+      <h3>SOUND</h3>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="opt-sfx"><span>Sound effects</span></label>
+        <label class="toggle"><input type="checkbox" id="opt-music"><span>Ambient music</span></label>
+        <label class="toggle"><input type="checkbox" id="opt-vibrate"><span>Vibration</span></label>
+      </div>
+
+      <h3>RECORDS</h3>
+      <dl class="records">
+        <div><dt>High score</dt><dd id="rec-best">0</dd></div>
+        <div><dt>Best single move</dt><dd id="rec-move">0</dd></div>
+        <div><dt>Longest chain</dt><dd id="rec-chain">0</dd></div>
+        <div><dt>Highest level</dt><dd id="rec-level">1</dd></div>
+        <div><dt>Pieces popped</dt><dd id="rec-popped">0</dd></div>
+      </dl>
+
+      <h3>HOW TO PLAY</h3>
+      <ul class="howto">
+        <li>Swipe or tap two neighbours to swap them. Line up <b>3 or more</b> of a kind.</li>
+        <li><b>4 in a row</b> makes a <em>Nova</em>: it blasts everything around it.</li>
+        <li><b>L or T shape</b> makes a <em>Cross</em>: it clears its whole row and column.</li>
+        <li><b>5 in a row</b> makes a <em>Prism</em>: swap it with any piece to clear that colour.</li>
+        <li>Swap two specials together for mega combos. Cascades multiply your points!</li>
+        <li>Zen mode never ends: the board always has a move, and your game is saved.</li>
+      </ul>
+
+      <div class="sheet-actions">
+        <button id="btn-new" class="btn alt">NEW GAME</button>
+        <button class="btn" data-close>RESUME</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm" class="overlay hidden">
+    <div class="sheet small-sheet" role="dialog" aria-label="Start a new game">
+      <h2>NEW GAME?</h2>
+      <p>Your current score resets. Your records stay.</p>
+      <div class="sheet-actions">
+        <button id="btn-confirm-new" class="btn alt">YES, NEW</button>
+        <button class="btn" data-close>KEEP PLAYING</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sprite gallery</title>
+<style>
+  body { background: #2a2140; color: #fff; font: 14px monospace; margin: 16px; }
+  .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+  .row.light { background: #e9e2d0; padding: 6px; }
+  canvas { image-rendering: pixelated; width: 120px; height: 120px; }
+  h2 { margin: 16px 0 4px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+  import { themeSprites } from '../js/sprites.js';
+  const out = document.getElementById('out');
+  for (const id of ['jewels', 'cosmos', 'garden', 'slimes']) {
+    const set = themeSprites(id);
+    const h = document.createElement('h2'); h.textContent = id; out.appendChild(h);
+    for (const cls of ['row', 'row light']) {
+      const row = document.createElement('div'); row.className = cls;
+      for (const img of [...set.pieces.map((p) => p.img), set.prism[0], set.prism[4]]) {
+        const c = document.createElement('canvas'); c.width = 20; c.height = 20;
+        c.getContext('2d').drawImage(img, 0, 0); row.appendChild(c);
+      }
+      out.appendChild(row);
+    }
+  }
+</script>
+</body>
+</html>

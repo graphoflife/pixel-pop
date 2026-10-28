@@ -1,0 +1,16 @@
+{
+  "name": "Pixel Pop! Zen",
+  "short_name": "Pixel Pop",
+  "description": "A relaxing pixel-art match-3 in zen mode.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c0f35",
+  "theme_color": "#1c0f35",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
