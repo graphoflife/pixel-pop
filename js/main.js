@@ -1,13 +1,13 @@
-// App shell: persistence, HUD, menus, theme switching and the frame loop.
+// App shell: persistence, HUD, menus and the frame loop.
 
 import { Game } from './game.js';
 import { Audio } from './audio.js';
-import { THEMES, THEME_ORDER, makeBackground } from './themes.js';
-import { themeSprites, SPR } from './sprites.js';
+import { Background } from './theme.js';
+import { pieceSprites } from './sprites.js';
 
 const KEY = 'pixelpop.v1';
 const DEFAULTS = {
-  settings: { theme: 'jewels', sfx: true, music: true, vibrate: true },
+  settings: { sfx: true, music: true, vibrate: true },
   stats: { best: 0, bestMove: 0, bestChain: 0, bestLevel: 1, popped: 0, games: 1 },
 };
 
@@ -22,7 +22,6 @@ function load() {
 }
 
 const data = load();
-if (!THEMES[data.settings.theme]) data.settings.theme = 'jewels';
 const persist = () => {
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* private mode etc. */ }
 };
@@ -74,62 +73,14 @@ game.vibrate = data.settings.vibrate;
 
 const bgCanvas = $('bg');
 const bgCtx = bgCanvas.getContext('2d');
-let bg = null;
+const bg = new Background();
 let bgTime = 0;
 const BG_PIXEL = 3; // css pixels per background pixel
 
 function sizeBackground() {
   const w = Math.ceil(window.innerWidth / BG_PIXEL), h = Math.ceil(window.innerHeight / BG_PIXEL);
   bgCanvas.width = w; bgCanvas.height = h;
-  bg?.resize(w, h);
-}
-
-// -------------------------------------------------------------- themes
-
-function previewCanvas(themeId, count = 7, gap = 2) {
-  const set = themeSprites(themeId);
-  const c = document.createElement('canvas');
-  c.width = count * (SPR + gap) + gap;
-  c.height = SPR + gap * 2;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = THEMES[themeId].board.a;
-  ctx.fillRect(0, 0, c.width, c.height);
-  for (let i = 0; i < count; i++) ctx.drawImage(set.pieces[i].img, gap + i * (SPR + gap), gap);
-  return c;
-}
-
-function applyTheme(id) {
-  data.settings.theme = id;
-  persist();
-  document.body.dataset.theme = id;
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', getComputedStyle(document.body).getPropertyValue('--bg').trim());
-  game.setTheme(id);
-  bg = makeBackground(id);
-  sizeBackground();
-  document.querySelectorAll('[data-theme-id]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.themeId === id)));
-}
-
-function buildThemePickers() {
-  const grid = $('theme-grid');
-  const pills = $('splash-themes');
-  for (const id of THEME_ORDER) {
-    const card = document.createElement('button');
-    card.className = 'theme-card';
-    card.dataset.themeId = id;
-    card.append(previewCanvas(id));
-    const name = document.createElement('b'); name.textContent = THEMES[id].name.toUpperCase();
-    const blurb = document.createElement('small'); blurb.textContent = THEMES[id].blurb;
-    card.append(name, blurb);
-    card.addEventListener('click', () => { audio.unlock(); applyTheme(id); audio.select(); });
-    grid.append(card);
-
-    const pill = document.createElement('button');
-    pill.className = 'pill';
-    pill.dataset.themeId = id;
-    pill.textContent = THEMES[id].name.toUpperCase();
-    pill.addEventListener('click', () => { audio.unlock(); applyTheme(id); audio.select(); });
-    pills.append(pill);
-  }
+  bg.resize(w, h);
 }
 
 // ------------------------------------------------------------- overlays
@@ -225,7 +176,7 @@ let splashOpen = true;
 const parade = $('parade');
 const paradeCtx = parade.getContext('2d');
 function drawParade(t) {
-  const set = themeSprites(data.settings.theme);
+  const set = pieceSprites();
   paradeCtx.clearRect(0, 0, parade.width, parade.height);
   for (let i = 0; i < 7; i++) {
     const y = 8 + Math.round(Math.sin(t * 4 + i * 0.8) * 4);
@@ -241,7 +192,7 @@ function frame(now) {
   const dt = Math.min(50, now - last);
   last = now;
   bgTime += dt / 1000;
-  if (bg) bg.draw(bgCtx, bgTime, dt / 1000);
+  bg.draw(bgCtx, bgTime, dt / 1000);
   if (splashOpen) drawParade(bgTime);
   game.update(dt);
   game.render();
@@ -251,9 +202,8 @@ function frame(now) {
 
 // ----------------------------------------------------------------- boot
 
-buildThemePickers();
 wireUi();
-applyTheme(data.settings.theme);
+sizeBackground();
 syncSoundToggles();
 game.start(data.game, data.stats);
 // hide the board until PLAY drops it in

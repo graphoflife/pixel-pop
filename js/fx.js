@@ -110,19 +110,16 @@ export class Fx {
 
   // ---------------------------------------------------------- spawners
 
-  explode(x, y, ramp, style, count = 10, power = 1) {
+  // gem shards flying out of a popped piece
+  explode(x, y, ramp, count = 10, power = 1) {
     const cols = ramp ? ramp.slice(2) : ['#ff5a5a', '#ffd23f', '#5ee7ff', '#b468f0', '#7dff7a', '#ffffff'];
     for (let i = 0; i < count; i++) {
       const a = rand(0, TAU), sp = rand(25, 75) * power;
-      const p = {
+      this.parts.push({
         x: x + rand(-3, 3), y: y + rand(-3, 3), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 20,
         life: 0, max: rand(0.45, 0.9), c: pick(cols), size: Math.random() < 0.35 ? 2 : 1,
-        g: 160, drag: 1.5, style,
-      };
-      if (style === 'dust') { p.g = 0; p.drag = 2.2; p.vy += 20; p.max *= 1.3; }
-      if (style === 'petal') { p.g = 45; p.drag = 3; p.size = 2; p.sway = rand(0, TAU); p.max *= 1.6; }
-      if (style === 'goo') { p.g = 260; p.size = Math.random() < 0.5 ? 2 : 3; p.vy -= 30; }
-      this.parts.push(p);
+        g: 160, drag: 1.5, style: 'shard',
+      });
     }
     for (let i = 0; i < Math.ceil(count / 4); i++) this.sparkle(x + rand(-6, 6), y + rand(-6, 6), ramp ? ramp[5] : '#ffffff');
   }
@@ -136,7 +133,7 @@ export class Fx {
     for (let i = 0; i < count; i++) {
       this.parts.push({
         x: rand(0, w), y: rand(-20, 0), vx: rand(-15, 15), vy: rand(20, 60), life: 0, max: rand(1.4, 2.4),
-        c: pick(cols), size: 2, g: 30, drag: 0.6, style: 'petal', sway: rand(0, TAU),
+        c: pick(cols), size: 2, g: 30, drag: 0.6, style: 'confetti', sway: rand(0, TAU),
       });
     }
   }
@@ -249,7 +246,7 @@ export class Fx {
       if (p.style === 'spark') {
         ctx.fillRect(x, y, 1, 1);
         if (k < 0.6) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
-      } else if (p.style === 'petal') {
+      } else if (p.style === 'confetti') {
         const flip = Math.sin(p.life * 14 + (p.sway || 0)) > 0;
         ctx.fillRect(x, y, flip ? p.size : 1, flip ? 1 : p.size);
       } else if (p.style === 'shard' && p.size === 2) {

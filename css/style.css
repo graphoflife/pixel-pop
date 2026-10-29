@@ -1,4 +1,4 @@
-/* --ui* is the one subtle colour set shared by every button and HUD field */
+/* --ui* is the subtle colour set shared by every button and HUD field */
 :root {
   --ink: #1a0f26;
   --bg: #1c0f35;
@@ -13,9 +13,6 @@
   --body: "Pixelify Sans", monospace;
   --bar-h: 46px;
 }
-body[data-theme="cosmos"] { --bg: #070514; --panel: #5ee7ff; --panel-2: #ff9ae6; --ui: #16204a; --ui-text: #def9ff; --ui-dim: #7ba7cc; --accent: #5ee7ff; }
-body[data-theme="garden"] { --bg: #a6e2ff; --panel: #ffb3d1; --panel-2: #b8f28a; --ui: #e6f2d8; --ui-text: #26491f; --ui-dim: #6f8f62; --accent: #f27aa6; }
-body[data-theme="slimes"] { --bg: #16384a; --panel: #7dff7a; --panel-2: #ffb8d6; --ui: #1b4656; --ui-text: #e6ffe0; --ui-dim: #86c7a4; --accent: #7dff7a; }
 
 * { box-sizing: border-box; }
 
@@ -240,28 +237,9 @@ body::after {
 }
 .tagline {
   font-size: 18px;
-  margin: 6px 0 14px;
+  margin: 6px 0 22px;
   text-shadow: 2px 2px 0 var(--ink);
 }
-.theme-pills {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-.pill {
-  font-family: var(--pixel);
-  font-size: 9px;
-  padding: 8px 9px;
-  background: var(--ui);
-  color: var(--ui-text);
-  border: 3px solid var(--ink);
-  border-radius: 20px;
-  box-shadow: 2px 2px 0 var(--ink);
-  cursor: pointer;
-}
-.pill[aria-pressed="true"] { background: var(--accent); color: var(--ink); transform: translateY(-2px); }
 .best-line {
   font-family: var(--pixel);
   font-size: 11px;
@@ -298,34 +276,6 @@ body::after {
   transform: rotate(-2deg);
 }
 
-.theme-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.theme-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-  padding: 8px;
-  background: #fff;
-  color: var(--ink);
-  border: 3px solid var(--ink);
-  border-radius: 8px;
-  box-shadow: 3px 3px 0 var(--ink);
-  cursor: pointer;
-  font-family: var(--body);
-  text-align: left;
-}
-.theme-card canvas {
-  width: 100%;
-  image-rendering: pixelated;
-  border-radius: 4px;
-}
-.theme-card b { font-family: var(--pixel); font-size: 10px; font-weight: normal; }
-.theme-card small { font-size: 13px; opacity: 0.75; }
-.theme-card[aria-pressed="true"] { background: var(--panel); outline: 3px solid var(--accent); outline-offset: 1px; }
 
 .toggles { display: grid; gap: 8px; }
 .toggle {

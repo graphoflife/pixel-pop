@@ -1,15 +1,9 @@
-// All sound is synthesised with WebAudio: no audio files. Each theme gets its
-// own instrument and scale, and matches climb the scale as cascades chain up.
+// All sound is synthesised with WebAudio: no audio files. Glassy bells on a
+// pentatonic scale, and matches climb the scale as cascades chain up.
 
-const PENTA = [0, 2, 4, 7, 9];
-const MINOR_PENTA = [0, 3, 5, 7, 10];
-
-const VOICES = {
-  bell: { root: 72, scale: PENTA, pad: 'sine', chords: [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2]] },
-  synth: { root: 69, scale: MINOR_PENTA, pad: 'sawtooth', chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -2, 2]] },
-  marimba: { root: 65, scale: PENTA, pad: 'triangle', chords: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [2, 7, 11]] },
-  bloop: { root: 67, scale: PENTA, pad: 'square', chords: [[0, 4, 7], [-5, -1, 2], [-3, 0, 4], [-7, -3, 0]] },
-};
+const ROOT = 72; // C5
+const SCALE = [0, 2, 4, 7, 9];
+const CHORDS = [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2]];
 
 const mtof = (m) => 440 * 2 ** ((m - 69) / 12);
 
@@ -18,15 +12,8 @@ export class Audio {
     this.ctx = null;
     this.sfxOn = true;
     this.musicOn = true;
-    this.voice = VOICES.bell;
-    this.voiceName = 'bell';
     this.lastLand = 0;
     this.musicTimer = null;
-  }
-
-  setVoice(name) {
-    this.voiceName = name;
-    this.voice = VOICES[name] || VOICES.bell;
   }
 
   // Browsers only allow audio after a user gesture, so this runs on first tap.
@@ -146,33 +133,16 @@ export class Audio {
   }
 
   note(i, octave = 0) {
-    const { root, scale } = this.voice;
-    const n = scale.length;
+    const n = SCALE.length;
     const oct = Math.floor(i / n);
-    return mtof(root + 12 * (oct + octave) + scale[((i % n) + n) % n]);
+    return mtof(ROOT + 12 * (oct + octave) + SCALE[((i % n) + n) % n]);
   }
 
-  // the theme's instrument
+  // a glassy bell: a sine with two inharmonic partials that die away quickly
   pluck(freq, t, vel = 1, dest = this.sfx) {
-    switch (this.voiceName) {
-      case 'synth':
-        this.osc('square', freq, t, { gain: 0.09 * vel, decay: 0.32, dest, send: 0.25, echo: 0.35, filter: { from: 3200, to: 500, time: 0.3 } });
-        this.osc('sine', freq / 2, t, { gain: 0.1 * vel, decay: 0.25, dest, send: 0.1 });
-        break;
-      case 'marimba':
-        this.osc('sine', freq, t, { gain: 0.3 * vel, decay: 0.45, dest, send: 0.2 });
-        this.osc('sine', freq * 4, t, { gain: 0.1 * vel, decay: 0.05, dest, send: 0 });
-        this.osc('triangle', freq * 2, t, { gain: 0.05 * vel, decay: 0.15, dest, send: 0.1 });
-        break;
-      case 'bloop':
-        this.osc('sine', freq * 0.55, t, { gain: 0.3 * vel, decay: 0.25, to: freq, toTime: 0.06, dest, send: 0.15 });
-        this.osc('triangle', freq * 1.01, t + 0.01, { gain: 0.06 * vel, decay: 0.18, dest, send: 0.1 });
-        break;
-      default: // bell
-        this.osc('sine', freq, t, { gain: 0.22 * vel, decay: 0.9, dest, send: 0.35 });
-        this.osc('sine', freq * 2.756, t, { gain: 0.07 * vel, decay: 0.35, dest, send: 0.3 });
-        this.osc('sine', freq * 5.4, t, { gain: 0.025 * vel, decay: 0.14, dest, send: 0.2 });
-    }
+    this.osc('sine', freq, t, { gain: 0.22 * vel, decay: 0.9, dest, send: 0.35 });
+    this.osc('sine', freq * 2.756, t, { gain: 0.07 * vel, decay: 0.35, dest, send: 0.3 });
+    this.osc('sine', freq * 5.4, t, { gain: 0.025 * vel, decay: 0.14, dest, send: 0.2 });
   }
 
   // ----------------------------------------------------------- events
@@ -210,7 +180,6 @@ export class Audio {
     if (size >= 4) this.pluck(this.note(base + 2), t + 0.05, 0.8);
     if (size >= 5) this.pluck(this.note(base + 4), t + 0.1, 0.8);
     this.noise(t, 0.05, { gain: 0.1, type: 'highpass', from: 3000, send: 0.05 });
-    if (this.voiceName === 'bloop') this.noise(t, 0.09, { gain: 0.12, type: 'lowpass', from: 900, to: 300, send: 0.05 });
     if (chain >= 3) this.noise(t + 0.02, 0.4, { gain: 0.06 + Math.min(chain, 8) * 0.01, type: 'highpass', from: 5000, send: 0.3, attack: 0.02 });
   }
 
@@ -225,9 +194,6 @@ export class Audio {
     const t = this.now;
     this.noise(t, 0.5 + power * 0.25, { gain: 0.45, type: 'lowpass', from: 4000, to: 120, q: 0.7, send: 0.25 });
     this.osc('sine', 160, t, { gain: 0.6, decay: 0.32 + power * 0.1, to: 38, toTime: 0.3, send: 0.1 });
-    if (this.voiceName === 'bloop') this.noise(t + 0.02, 0.18, { gain: 0.25, from: 900, to: 400, q: 3 });
-    if (this.voiceName === 'synth') this.osc('sawtooth', 900, t, { gain: 0.06, decay: 0.5, to: 60, toTime: 0.5, echo: 0.5, filter: { from: 2000, to: 200 } });
-    if (this.voiceName === 'marimba') this.noise(t, 0.6, { gain: 0.12, from: 1800, to: 500, q: 0.8, send: 0.4 });
   }
 
   zap() {
@@ -255,8 +221,7 @@ export class Audio {
     if (!this.ready || this.now - this.lastLand < 0.07) return;
     this.lastLand = this.now;
     const t = this.now;
-    if (this.voiceName === 'bloop') this.osc('sine', 260, t, { gain: 0.08, decay: 0.08, to: 140, toTime: 0.06, send: 0 });
-    else this.osc('sine', 130, t, { gain: 0.07, decay: 0.06, to: 70, toTime: 0.05, send: 0 });
+    this.osc('sine', 130, t, { gain: 0.07, decay: 0.06, to: 70, toTime: 0.05, send: 0 });
   }
 
   shuffle() {
@@ -292,26 +257,20 @@ export class Audio {
   }
 
   playBar(t, bar) {
-    const v = this.voice;
-    const chord = v.chords[bar % v.chords.length];
-    const base = v.root - 12;
+    const chord = CHORDS[bar % CHORDS.length];
     for (const semi of chord) {
-      const f = mtof(base + semi);
+      const f = mtof(ROOT - 12 + semi);
       for (const det of [-6, 6]) {
         const o = this.ctx.createOscillator();
-        o.type = v.pad;
+        o.type = 'sine';
         o.frequency.value = f;
         o.detune.value = det;
-        const flt = this.ctx.createBiquadFilter();
-        flt.type = 'lowpass';
-        flt.frequency.value = v.pad === 'sine' ? 4000 : 900;
         const g = this.ctx.createGain();
-        const peak = v.pad === 'sine' ? 0.05 : v.pad === 'triangle' ? 0.045 : 0.022;
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(peak, t + 1.4);
-        g.gain.setValueAtTime(peak, t + 3);
+        g.gain.exponentialRampToValueAtTime(0.05, t + 1.4);
+        g.gain.setValueAtTime(0.05, t + 3);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 5.2);
-        o.connect(flt); flt.connect(g); g.connect(this.music);
+        o.connect(g); g.connect(this.music);
         const s = this.ctx.createGain(); s.gain.value = 0.5; g.connect(s); s.connect(this.reverb);
         o.start(t); o.stop(t + 5.3);
       }

@@ -2,8 +2,8 @@
 // loop as awaited animations, handles input and renders the scene.
 
 import * as B from './board.js';
-import { themeSprites, INK } from './sprites.js';
-import { THEMES, CHAIN_WORDS } from './themes.js';
+import { pieceSprites, INK } from './sprites.js';
+import { THEME, CHAIN_WORDS } from './theme.js';
 import { Fx } from './fx.js';
 
 const T = 20;                     // tile size in art pixels
@@ -48,18 +48,13 @@ export class Game {
     this.drag = null;
     this.vibrate = true;
     this.layout = { S: 1, ox: 0, oy: 0 };
+    this.theme = THEME;
+    this.sprites = pieceSprites();
+    this.frame = this.buildFrame();
     this.bindInput();
   }
 
   // ------------------------------------------------------------- setup
-
-  setTheme(id) {
-    this.themeId = id;
-    this.theme = THEMES[id];
-    this.sprites = themeSprites(id);
-    this.frame = this.buildFrame();
-    this.audio.setVoice(this.theme.sound);
-  }
 
   start(saved, stats) {
     this.stats = stats;
@@ -205,7 +200,7 @@ export class Game {
       if (p.pop.mode === 'burst' && k >= 0.3 && !p.pop.spawned) {
         p.pop.spawned = true;
         const ramp = p.special === B.PRISM ? null : this.sprites.ramps[p.type];
-        this.fx.explode(PAD + p.x * T + T / 2, PAD + p.y * T + T / 2, ramp, this.theme.particle, p.pop.big ? 16 : 9);
+        this.fx.explode(PAD + p.x * T + T / 2, PAD + p.y * T + T / 2, ramp, p.pop.big ? 16 : 9);
       }
     }
     this.dying = this.dying.filter((p) => this.time - p.pop.start < p.pop.dur);
@@ -472,7 +467,7 @@ export class Game {
         const big = ev.radius > 1;
         this.fx.ring(x, y, colour, big ? 52 : 30, big ? 0.5 : 0.35, 3);
         this.fx.ring(x, y, '#ffffff', big ? 36 : 20, 0.25);
-        this.fx.explode(x, y, ev.type >= 0 ? this.sprites.ramps[ev.type] : null, this.theme.particle, big ? 40 : 22, big ? 2 : 1.4);
+        this.fx.explode(x, y, ev.type >= 0 ? this.sprites.ramps[ev.type] : null, big ? 40 : 22, big ? 2 : 1.4);
         this.fx.kick(big ? 7 : 4, big ? 0.4 : 0.18);
         this.fx.burst(x, y, pick(words.nova), { size: big ? 9 : 7 });
         this.audio.nova(big ? 2 : 1);
@@ -719,26 +714,14 @@ export class Game {
     let x = PAD + p.x * T, y = PAD + p.y * T;
     let sx = 1, sy = 1, flash = 0, alpha = 1, anchorBottom = true;
 
-    // idle personality per theme: every piece is always gently moving
-    const idle = this.theme.idle;
-    const ph = p.phase * 6.283;
+    // every gem is always gently rocking
     const sec = t / 1000;
-    let angle = 0, pivotBottom = false;
-    if (!p.pop && !p.fall) {
-      if (idle === 'shine') angle = Math.sin(sec * 1.7 + ph) * 0.08;
-      if (idle === 'drift') { angle = Math.sin(sec * 1.1 + ph) * 0.11; y += Math.round(Math.sin(sec * 1.4 + ph) * 0.8); }
-      if (idle === 'sway') { angle = Math.sin(sec * 1.9 + ph) * 0.14 + Math.sin(sec * 0.7 + ph * 2) * 0.04; pivotBottom = true; }
-      if (idle === 'wobble') {
-        const w = Math.sin(sec * 3.2 + ph) * 0.06;
-        sy += w; sx -= w * 0.8;
-        angle = Math.sin(sec * 1.6 + ph) * 0.06; pivotBottom = true;
-      }
-    }
+    const angle = !p.pop && !p.fall ? Math.sin(sec * 1.7 + p.phase * 6.283) * 0.08 : 0;
 
     const sinceLand = t - p.land;
     if (sinceLand < 220) {
       const k = sinceLand / 220;
-      const squash = Math.sin(k * Math.PI) * (1 - k) * (idle === 'wobble' ? 0.35 : 0.2);
+      const squash = Math.sin(k * Math.PI) * (1 - k) * 0.2;
       sy -= squash; sx += squash * 0.8;
     }
     const sinceBorn = t - p.born;
@@ -775,9 +758,9 @@ export class Game {
       s.globalAlpha = a;
       if (!angle) { s.drawImage(image, dx + ox, dy + oy, w, h); return; }
       s.save();
-      s.translate(dx + w / 2 + ox, (pivotBottom ? dy + h : dy + h / 2) + oy);
+      s.translate(dx + w / 2 + ox, dy + h / 2 + oy);
       s.rotate(angle);
-      s.drawImage(image, -w / 2, pivotBottom ? -h : -h / 2, w, h);
+      s.drawImage(image, -w / 2, -h / 2, w, h);
       s.restore();
     };
 
@@ -785,7 +768,7 @@ export class Game {
     blit(shadow, alpha * 0.35, 1, 1);
     blit(img, alpha);
 
-    if (idle === 'shine' && !p.pop && special !== B.PRISM) {
+    if (!p.pop && special !== B.PRISM) {
       const cycle = (sec + p.phase * 9) % 4;
       const frames = this.sprites.pieces[p.type].shine;
       if (cycle < 0.5) blit(frames[Math.floor((cycle / 0.5) * frames.length)], 0.75);

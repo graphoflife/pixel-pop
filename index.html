@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Pixel Pop! Zen</title>
-  <meta name="description" content="A relaxing pixel-art match-3 in zen mode: jewels, cosmos, garden and slime themes, combos, explosions and no game over.">
+  <meta name="description" content="A relaxing pixel-art jewel match-3 in zen mode: combos, explosions and no game over.">
   <meta name="theme-color" content="#1c0f35">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body data-theme="jewels">
+<body>
   <canvas id="bg" aria-hidden="true"></canvas>
 
   <div id="app">
@@ -44,7 +44,6 @@
       <div class="zen-badge">ZEN MODE</div>
       <canvas id="parade" width="168" height="34"></canvas>
       <p class="tagline">Match, chain &amp; blast &mdash; no timer, no game over.</p>
-      <div class="theme-pills" id="splash-themes"></div>
       <button id="btn-play" class="btn big">PLAY</button>
       <p class="best-line">BEST <b id="splash-best">0</b></p>
     </div>
@@ -56,9 +55,6 @@
         <h2>MENU</h2>
         <button class="btn small" data-close>&times;</button>
       </div>
-
-      <h3>THEME</h3>
-      <div class="theme-grid" id="theme-grid"></div>
 
       <h3>SOUND</h3>
       <div class="toggles">
